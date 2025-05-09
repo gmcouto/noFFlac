@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # The purpose of this script is to extract all existing metadata from an m4a file
 # This should include the track name, artist, album, year, genre. Except for the cover art.
@@ -55,7 +55,7 @@ clean_field_value() {
         to_entries[] | 
         select(.value != null and .value != "") | 
         select(.key != "Cover") |
-        "\(.key | ascii_upcase | gsub(" "; "_"))=\(.value)"
+        "\(.key)=\(.value)"
     '
 } > "$metadata_file"
 

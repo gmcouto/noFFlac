@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Given an input m4a file, for example "Breakaway.mp4"
 # Extract the cover art and save it as "temp/Breakaway_cover.[ext]" (keep the original file type extension)

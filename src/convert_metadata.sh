@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script receives two parameters: inputFile and outputFile
 # Example:
@@ -16,6 +16,7 @@
 # - METADATA_MAP must cover all keys that exist in FLAC files but have different names in M4A files
 # - Keys in the input file that are not in BLACKLISTED_METADATA_KEYS or METADATA_MAP will be added as is to the output file
 # - The script will output the result to the output file.
+# - The EXTRA field contains JSON data that will be parsed and added as individual metadata entries
 
 # Keep this comment header to never lose the main purpose of this script
 
@@ -31,6 +32,12 @@ outputFile="$2"
 # Check if input file exists
 if [ ! -f "$inputFile" ]; then
     echo "Error: Input file '$inputFile' does not exist"
+    exit 1
+fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed. Please install jq first."
     exit 1
 fi
 
@@ -58,38 +65,59 @@ BLACKLISTED_METADATA_KEYS=(
     "SAMPLINGCOUNT"
     "FRAMECOUNT"
     "COMPRESSION_MODE"
-    "EXTRA"
     "FILE_MODIFIED_DATE"
     "FILE_MODIFIED_DATE_LOCAL"
-
+    "CHANNELS"
+    "SAMPLINGRATE"
+    "BITDEPTH"
+    "MD5_UNDECODED"
 )
+
+# Global variables to track processed state
+declare -g processed_title=0
 
 # Define metadata mapping (M4A to FLAC)
 # Using a simpler approach without associative arrays
 map_key() {
-    case "$1" in
-        "TITLE") echo "TITLE" ;;
-        "ALBUM") echo "ALBUM" ;;
-        "ALBUM_PERFORMER") echo "ALBUMARTIST" ;;
-        "PART_POSITION") echo "DISCNUMBER" ;;
-        "PART_POSITION_TOTAL") echo "TOTALDISCS" ;;
-        "TRACK") echo "TRACKNAME" ;;
-        "TRACK_POSITION") echo "TRACKNUMBER" ;;
-        "TRACK_POSITION_TOTAL") echo "TOTALTRACKS" ;;
-        "PERFORMER") echo "ARTIST" ;;
-        "COMPOSER") echo "COMPOSER" ;;
-        "PRODUCER") echo "PRODUCER" ;;
-        "RECORDED_DATE") echo "DATE" ;;
+    declare -g processed_title
+    # Convert input to uppercase for case-insensitive comparison
+    local upper_key=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+    case "$upper_key" in
+        "TITLE"|"TRACK")
+            echo "Title"
+            ;;
+        "ALBUM") echo "Album" ;;
+        "ALBUM_PERFORMER") echo "AlbumArtist" ;;
+        "PART_POSITION") echo "DiscNumber" ;;
+        "PART_POSITION_TOTAL") echo "TotalDiscs" ;;
+        "TRACK_POSITION") echo "TrackNumber" ;;
+        "TRACK_POSITION_TOTAL") echo "TotalTracks" ;;
+        "PERFORMER") echo "Artist" ;;
+        "COMPOSER") echo "Composer" ;;
+        "PRODUCER") echo "Producer" ;;
+        "RECORDED_DATE") echo "Date" ;;
         "ISRC") echo "ISRC" ;;
-        "COPYRIGHT") echo "COPYRIGHT" ;;
-        "LYRICS") echo "LYRICS" ;;
-        "RATING") echo "RATING" ;;
+        "COPYRIGHT") echo "Copyright" ;;
+        "LYRICS") echo "Lyrics" ;;
+        "RATING") echo "Rating" ;;
         *) echo "$1" ;;
     esac
 }
 
+# Function to process JSON from EXTRA field
+process_extra_json() {
+    local json_data="$1"
+    local output_file="$2"
+    
+    # Use jq to extract key-value pairs, replace underscores with spaces in keys, and format them
+    echo "$json_data" | jq -r 'to_entries | .[] | "\(.key | gsub("_"; " "))=\(.value)"' >> "$output_file"
+}
+
 # Create or clear the output file
 > "$outputFile"
+
+# Flag to track if EXTRA has been processed
+extra_processed=0
 
 # Process the input file
 while IFS= read -r line; do
@@ -103,18 +131,37 @@ while IFS= read -r line; do
     key="${line%%=*}"
     value="${line#*=}"
     
-    # Skip blacklisted keys
+    # Skip blacklisted keys (case insensitive)
     skip=0
+    upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
     for blacklisted in "${BLACKLISTED_METADATA_KEYS[@]}"; do
-        if [[ "$key" == "$blacklisted" ]]; then
+        if [[ "$upper_key" == "$blacklisted" ]]; then
             skip=1
             break
         fi
     done
     [[ $skip -eq 1 ]] && continue
     
+    # Special handling for EXTRA field - only process first occurrence
+    if [[ $(echo "$key" | tr '[:lower:]' '[:upper:]') == "EXTRA" ]]; then
+        if [[ $extra_processed -eq 0 ]]; then
+            process_extra_json "$value" "$outputFile"
+            extra_processed=1
+        fi
+        continue
+    fi
+    
     # Map the key and write to output
     mapped_key=$(map_key "$key")
+    # Skip duplicate Title if already processed
+    if [[ "$mapped_key" == "Title" ]]; then
+        if [[ $processed_title -eq 1 ]]; then
+            continue
+        else
+            processed_title=1
+        fi
+    fi
+    echo "${mapped_key}=${value}"
     echo "${mapped_key}=${value}" >> "$outputFile"
 done < "$inputFile"
 

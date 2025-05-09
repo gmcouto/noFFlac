@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # THIS MUST RECEIVE INPUT LIKE "Breakaway" (make it generic of course)
 # And read Breakway.raw as the main flac audio track. No need to reencode.
@@ -37,29 +37,19 @@ fi
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
 
-# Read metadata from the metadata file
-while IFS='=' read -r key value; do
-    # Skip empty lines and comments
-    [[ -z "$key" || "$key" =~ ^# ]] && continue
-    # Remove any leading/trailing whitespace
-    key=$(echo "$key" | xargs)
-    value=$(echo "$value" | xargs)
-    # Add to metadata array
-    METADATA+=("$key=$value")
-done < "$TEMP_DIR/${TRACK_NAME}_flac_metadata.txt"
-
 # Build the metaflac command with all metadata
 METAFLAC_CMD="metaflac --import-picture-from=\"$TEMP_DIR/${TRACK_NAME}_cover.jpg\""
 
-# Add all metadata fields
-for meta in "${METADATA[@]}"; do
-    METAFLAC_CMD="$METAFLAC_CMD --set-tag=\"$meta\""
-done
+# Add metadata from file
+METAFLAC_CMD="$METAFLAC_CMD --import-tags-from=\""$TEMP_DIR/${TRACK_NAME}_flac_metadata.txt"\""
 
 # Copy the raw FLAC file to output
 cp "$TEMP_DIR/${TRACK_NAME}.raw" "$OUTPUT_DIR/${TRACK_NAME}.flac"
 
 # Apply metadata and cover art
 eval "$METAFLAC_CMD \"$OUTPUT_DIR/${TRACK_NAME}.flac\""
+
+# Clean up temporary metadata file
+# rm "$TEMP_METADATA"
 
 echo "Successfully created $OUTPUT_DIR/${TRACK_NAME}.flac with metadata and cover art"
