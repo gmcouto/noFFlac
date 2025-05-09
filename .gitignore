@@ -1,0 +1,10 @@
+# Output files
+output/
+temp/
+
+# Audio files
+*.m4a
+*.flac
+
+# macOS system files
+.DS_Store 
