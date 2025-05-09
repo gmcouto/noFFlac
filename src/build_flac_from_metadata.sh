@@ -46,7 +46,7 @@ while IFS='=' read -r key value; do
     value=$(echo "$value" | xargs)
     # Add to metadata array
     METADATA+=("$key=$value")
-done < "$TEMP_DIR/${TRACK_NAME}_metadata.txt"
+done < "$TEMP_DIR/${TRACK_NAME}_flac_metadata.txt"
 
 # Build the metaflac command with all metadata
 METAFLAC_CMD="metaflac --import-picture-from=\"$TEMP_DIR/${TRACK_NAME}_cover.jpg\""

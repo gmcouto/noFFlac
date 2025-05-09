@@ -62,7 +62,15 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 2: Extract raw audio track
+# Step 2: Convert metadata to FLAC format
+echo "Converting metadata to FLAC format..."
+./src/convert_metadata.sh "temp/${INPUT_NAME}_metadata.txt" "temp/${INPUT_NAME}_flac_metadata.txt"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to convert metadata to FLAC format"
+    exit 1
+fi
+
+# Step 3: Extract raw audio track
 echo "Extracting raw audio track..."
 ./src/extract_m4a_raw_audio_track.sh "$INPUT_FILE"
 if [ $? -ne 0 ]; then
@@ -70,7 +78,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 3: Extract cover art
+# Step 4: Extract cover art
 echo "Extracting cover art..."
 ./src/extract_m4a_cover.sh "$INPUT_FILE"
 if [ $? -ne 0 ]; then
@@ -78,7 +86,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 4: Build FLAC file with metadata
+# Step 5: Build FLAC file with metadata
 echo "Converting to FLAC and embedding metadata..."
 ./src/build_flac_from_metadata.sh "$INPUT_NAME"
 if [ $? -ne 0 ]; then
